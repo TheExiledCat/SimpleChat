@@ -12,6 +12,7 @@ class Program
 
         FigletText welcomeMessage = new FigletText("SimpleChat").Centered().Color(Color.Purple);
         AnsiConsole.Write(welcomeMessage);
+        ProgramConfig.Load();
         return app.Run(args);
 
 
@@ -44,6 +45,7 @@ class RunCommand : AsyncCommand<RunSettings>
 
     public override async Task<int> ExecuteAsync(CommandContext context, RunSettings settings)
     {
+        ProgramConfig.Config.Dump();
         User u = new User();
         u.Name = settings.Username;
         if (u.Name == null)
