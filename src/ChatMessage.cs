@@ -1,20 +1,22 @@
 using System;
 using System.Text;
 using Dumpify;
+using Spectre.Console;
 
 namespace SimpleChat;
 
 public class ChatMessage
 {
-    const int MAXIMUM_MESSAGE_LENGTH = 1024;
-    const int MAXIMUM_SENDER_CHAR = 32;
-    const int MAXIMUM_SENDER_LENGTH = 2 * MAXIMUM_SENDER_CHAR;
+    public const int MAXIMUM_MESSAGE_LENGTH = 1024;
+    public const int MAXIMUM_SENDER_CHAR = 32;
+    public const int MAXIMUM_SENDER_LENGTH = 2 * MAXIMUM_SENDER_CHAR;
 
     //maximum length: 4 bytes (value counts its own 4 bytes too)
     public int Length { get; set; }
     //maximum length: 64 bytes
     //char is 2 utf16 bytes so half
     string m_Sender = "Anonymous";
+    public bool IsExternal { get; private set; }
     public string Sender
     {
         get => m_Sender; set
@@ -46,17 +48,27 @@ public class ChatMessage
     {
 
     }
-    public ChatMessage(string message)
+    public ChatMessage(string message, bool external = true)
     {
         Message = Encoding.Unicode.GetBytes(message);
+        IsExternal = external;
+
+
     }
     public void Send()
     {
 
     }
-    public string Read()
+    public Panel GetPanel(Color color, Justify justify = Justify.Center)
     {
-        throw new NotImplementedException();
+        Markup message = new Markup(MessageString, new Style(foreground: color));
+        message.Justify(justify);
+        Panel panel = new Panel(message);
+
+        panel.HeaderAlignment(justify);
+        panel.Header(Sender + (IsExternal ? "" : "(You)"));
+        panel.Padding(new Padding(5, 0));
+        return panel;
     }
     public byte[] Serialize()
     {
@@ -77,6 +89,7 @@ public class ChatMessage
 
         message.Sender = Encoding.Unicode.GetString(new ArraySegment<byte>(buffer, 4, MAXIMUM_SENDER_LENGTH));
         message.Message = new ArraySegment<byte>(buffer, 4 + MAXIMUM_SENDER_LENGTH, buffer.Length - 4 - MAXIMUM_SENDER_LENGTH).ToArray();
+        message.IsExternal = true;
         return message;
     }
 

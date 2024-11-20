@@ -11,12 +11,13 @@ namespace SimpleChat;
 public class SimpleChatServer
 {
     HttpListener m_Listener;
-    public SimpleChatServer(int port)
+    User m_Loggedin;
+    public SimpleChatServer(User loggedin, int port)
     {
         m_Listener = new HttpListener();
         m_Listener.Prefixes.Add($"http://localhost:{port}/chat/");
         m_Listener.Prefixes.Add($"http://127.0.0.1:{port}/chat/");
-
+        m_Loggedin = loggedin;
     }
     public async Task Run()
     {
@@ -74,24 +75,52 @@ public class SimpleChatServer
         Console.WriteLine("Starting chat...");
         await Task.Delay(2000);
         Console.Clear();
-        //messages are max 1024 bytes and are null terminated by default
-        int maximumMessageLength = 1024;
-        byte[] incoming = new byte[maximumMessageLength];
+        //messages are max 4096 bytes
+
+        byte[] incoming = new byte[4096];
+        ChatScreen screen = new ChatScreen();
+
+        await screen.Run();
+        screen.OnSend += async (mes) =>
+               {
+                   ChatMessage messageToSend = new ChatMessage(mes, false);
+                   messageToSend.Sender ??= m_Loggedin.Name;
+                   await webSocket.SendAsync(messageToSend.Serialize(), WebSocketMessageType.Text, true, CancellationToken.None);
+                   screen.ShowMessage(messageToSend);
+               };
+        Task.Run(async () =>
+        {
+            screen.GetInput();
+
+
+        });
         while (webSocket.State == WebSocketState.Open)
         {
             WebSocketReceiveResult result;
             try
             {
+
+
                 result = await webSocket.ReceiveAsync(incoming, CancellationToken.None);
                 byte[] bytes = incoming.Take(result.Count).ToArray();
                 ChatMessage message = ChatMessage.FromBuffer(bytes);
-                message.Dump();
+
+                await screen.ShowMessage(message);
+            }
+            catch (ArgumentException ae)
+            {
+                AnsiConsole.WriteLine("Error: Incoming message was too large");
+
             }
             catch (WebSocketException we)
             {
-                AnsiConsole.WriteException(we, ExceptionFormats.NoStackTrace);
+                AnsiConsole.WriteLine("Error: Incoming message failed");
+
+
             }
         }
+        Console.WriteLine("Connection closed...");
+        return;
 
     }
 }
